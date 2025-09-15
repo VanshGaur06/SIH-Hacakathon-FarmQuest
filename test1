@@ -1,0 +1,463 @@
+/**
+ * FarmQuest - React Single-file App (App.jsx)
+ *
+ * This is an expanded, production-ready single-file React app you can drop into a
+ * Create React App / Vite project. It now includes:
+ *  - Multi-page UI (Home, Lessons, Community, Profile) via simple client-side routing
+ *  - Lessons module with video/audio placeholders and offline download (mock) feature
+ *  - Service Worker registration stub for offline support (register a real SW in production)
+ *  - Accessibility improvements and localization scaffolding
+ *  - CSS fallback: Tailwind is used by default but a plain CSS fallback is provided below
+ *  - Instructions for converting to Next.js and building static HTML/CSS/JS
+ *
+ * How to use:
+ * 1) Create a React app (Vite or CRA).
+ * 2) (Optional) Install Tailwind. If you don't want Tailwind, the file contains a
+ *    basic CSS fallback — import it in index.css or paste into a <style> tag.
+ * 3) Replace App.jsx with this file or import it.
+ * 4) Start dev server: npm run dev or npm start.
+ *
+ * Conversion notes:
+ * - To convert to Next.js: split this App into pages (pages/index.jsx, pages/lessons.jsx, etc.)
+ *   and move components into /components. Use next/image for optimized images and API routes
+ *   (if needed) for downloads.
+ * - To produce static HTML/CSS/JS: run your framework's static export (e.g., next export or
+ *   build and copy the dist directory for Vite).
+ */
+
+import React, { useEffect, useState } from "react";
+
+// ----------------------------- Plain CSS fallback -----------------------------
+// If you don't want Tailwind, copy this CSS into your index.css and remove Tailwind classes.
+export const plainCss = `
+:root{--bg:#f7fff7;--card:#ffffff;--accent:#10b981;--muted:#6b7280;}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial; background:var(--bg); color:#0f172a}
+.container{max-width:1100px;margin:0 auto;padding:1rem}
+.header{background:rgba(255,255,255,0.9);position:sticky;top:0;z-index:40;box-shadow:0 1px 6px rgba(0,0,0,0.06)}
+.nav{display:flex;align-items:center;justify-content:space-between;padding:.75rem}
+.brand{display:flex;gap:.75rem;align-items:center}
+.brand .logo{width:40px;height:40px;border-radius:6px;background:linear-gradient(135deg,#16a34a,#34d399);display:flex;align-items:center;justify-content:center;color:white;font-weight:700}
+.buttons{display:flex;gap:.5rem}
+.card{background:var(--card);padding:1rem;border-radius:10px;box-shadow:0 4px 12px rgba(2,6,23,0.06)}
+.grid{display:grid;gap:1rem}
+.grid-2{grid-template-columns:1fr 1fr}
+.footer{background:#0f172a;color:white;padding:1rem;margin-top:1rem}
+`;
+
+// ----------------------------- Mock data -----------------------------
+const LESSONS = [
+  {
+    id: "l1",
+    title: "Drip Irrigation Basics",
+    duration: "6:12",
+    lang: "English",
+    video: "https://www.w3schools.com/html/mov_bbb.mp4",
+    summary: "Why drip irrigation saves water and how to set it up for small farms."
+  },
+  {
+    id: "l2",
+    title: "Soil Health & Composting",
+    duration: "5:40",
+    lang: "हिन्दी",
+    video: "https://www.w3schools.com/html/movie.mp4",
+    summary: "Practical composting techniques to improve soil fertility."
+  }
+];
+
+// ----------------------------- Utilities -----------------------------
+function downloadTextFile(filename, text) {
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+// Register service worker (stub) — replace '/sw.js' with your built SW in production
+function registerServiceWorker() {
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/sw.js").catch((err) => {
+      console.warn("Service worker registration failed:", err);
+    });
+  }
+}
+
+// ----------------------------- App -----------------------------
+export default function FarmQuest() {
+  const [route, setRoute] = useState("home"); // home | lessons | community | profile
+  const [lang, setLang] = useState("English");
+  const [profile, setProfile] = useState({ name: "Farmer", farmType: "Smallholder" });
+  const [quizOpen, setQuizOpen] = useState(false);
+  const [swRegistered, setSwRegistered] = useState(false);
+
+  useEffect(() => {
+    // user-friendly: remember last page
+    const last = localStorage.getItem("fq_last_route");
+    if (last) setRoute(last);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("fq_last_route", route);
+  }, [route]);
+
+  useEffect(() => {
+    // try registering SW (non-blocking)
+    if (swRegistered) return;
+    registerServiceWorker();
+    setSwRegistered(true);
+  }, [swRegistered]);
+
+  return (
+    <div>
+      <Header route={route} setRoute={setRoute} lang={lang} setLang={setLang} setQuizOpen={setQuizOpen} profile={profile} />
+
+      <main className="container" style={{ paddingTop: 24 }}>
+        {route === "home" && <Home setRoute={setRoute} />}
+        {route === "lessons" && <Lessons lang={lang} onDownloadLesson={(lesson) => {
+          // Create a quick text-file summary for offline study
+          const txt = `${lesson.title}
+Duration: ${lesson.duration}
+
+Summary:
+${lesson.summary}`;
+          downloadTextFile(${lesson.id}-${lesson.title}.txt, txt);
+        }} />}
+        {route === "community" && <Community />}
+        {route === "profile" && <Profile profile={profile} setProfile={setProfile} />}
+
+        <section style={{ marginTop: 18 }}>
+          <h3 style={{ fontSize: 18, fontWeight: 700 }}>User Flow Diagram</h3>
+          <div className="card" style={{ marginTop: 8 }}>
+            <pre style={{ margin: 0, whiteSpace: "pre-wrap", fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, monospace" }}>
+{User opens FarmQuest -> Select language/profile -> Complete micro-lesson -> Take quiz -> Earn badge -> Join community}
+            </pre>
+          </div>
+        </section>
+      </main>
+
+      {quizOpen && <MicroQuiz onClose={() => setQuizOpen(false)} />}
+
+      <Footer />
+
+      {/* Inline CSS fallback injection instruction (developer may remove if using Tailwind) */}
+      <style>{plainCss}</style>
+    </div>
+  );
+}
+
+// ----------------------------- Header -----------------------------
+function Header({ route, setRoute, lang, setLang, setQuizOpen, profile }) {
+  return (
+    <header className="header">
+      <div className="nav container">
+        <div className="brand" style={{ alignItems: "center" }}>
+          <div className="logo" aria-hidden>FQ</div>
+          <div>
+            <div style={{ fontWeight: 700 }}>FarmQuest</div>
+            <div style={{ fontSize: 12, color: "var(--muted)" }}>Sustainable farming — bite-sized learning</div>
+          </div>
+        </div>
+
+        <nav aria-label="Main navigation" style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <button onClick={() => setRoute("home")} aria-current={route === "home"}>Home</button>
+          <button onClick={() => setRoute("lessons")} aria-current={route === "lessons"}>Lessons</button>
+          <button onClick={() => setRoute("community")} aria-current={route === "community"}>Community</button>
+          <button onClick={() => setRoute("profile")} aria-current={route === "profile"}>Profile</button>
+
+          <select aria-label="Select language" value={lang} onChange={(e) => setLang(e.target.value)}>
+            <option>English</option>
+            <option>हिन्दी</option>
+            <option>मराठी</option>
+            <option>বাংলা</option>
+            <option>తెలుగు</option>
+          </select>
+
+          <div className="buttons">
+            <button onClick={() => setQuizOpen(true)} style={{ background: "var(--accent)", color: "white", padding: "6px 10px", borderRadius: 8 }}>Quiz</button>
+            <button aria-label={Open profile for ${profile.name}} onClick={() => setRoute("profile")}>Hi, {profile.name}</button>
+          </div>
+        </nav>
+      </div>
+    </header>
+  );
+}
+
+// ----------------------------- HOME -----------------------------
+function Home({ setRoute }) {
+  return (
+    <section>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 420px", gap: 16, alignItems: "start" }}>
+        <div>
+          <h2 style={{ fontSize: 28, fontWeight: 800 }}>Welcome to FarmQuest</h2>
+          <p style={{ color: "var(--muted)", marginTop: 8 }}>Practical micro-lessons, localized content, and community support — tailored for smallholder farmers and learners.</p>
+
+          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+            <button onClick={() => setRoute("lessons")} style={{ background: "var(--accent)", color: "white", padding: "8px 12px", borderRadius: 8 }}>Start Learning</button>
+            <button onClick={() => setRoute("community")} style={{ padding: "8px 12px", borderRadius: 8 }}>Join Community</button>
+          </div>
+
+          <section style={{ marginTop: 18 }}>
+            <h4 style={{ marginBottom: 8 }}>Why FarmQuest?</h4>
+            <ul style={{ color: "var(--muted)" }}>
+              <li>Short lessons you can finish in the field (audio & video).</li>
+              <li>Low-bandwidth mode and downloadable notes.</li>
+              <li>Community Q&A and local language support.</li>
+            </ul>
+          </section>
+        </div>
+
+        <div>
+          <div className="card">
+            <h4 style={{ margin: 0 }}>Quick Start</h4>
+            <ol style={{ marginTop: 8 }}>
+              <li>Create a profile.</li>
+              <li>Pick a lesson & watch the short video.</li>
+              <li>Take a 3-question quiz and earn a badge.</li>
+            </ol>
+            <div style={{ marginTop: 10 }}>
+              <img alt="farm" src="https://images.unsplash.com/photo-1524594154901-5dbefb8b5d7d?q=80&w=800&auto=format&fit=crop&ixlib=rb-4.0.3&s=placeholder" style={{ width: "100%", height: 160, objectFit: "cover", borderRadius: 8 }} />
+            </div>
+          </div>
+
+          <div className="card" style={{ marginTop: 12 }}>
+            <h4 style={{ margin: 0 }}>Latest Tips</h4>
+            <ul style={{ marginTop: 8, color: "var(--muted)" }}>
+              <li>Use mulch to retain soil moisture.</li>
+              <li>Rotate crops to maintain soil health.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ----------------------------- LESSONS -----------------------------
+function Lessons({ lang, onDownloadLesson }) {
+  const [selectedLesson, setSelectedLesson] = useState(null);
+
+  return (
+    <section>
+      <div style={{ display: "flex", gap: 12 }}>
+        <div style={{ flex: 1 }}>
+          <h3>Lessons</h3>
+          <p style={{ color: "var(--muted)" }}>Filter by language: {lang}</p>
+
+          <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
+            {LESSONS.filter(l => l.lang === lang || lang === "English").map(lesson => (
+              <div key={lesson.id} className="card" style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700 }}>{lesson.title}</div>
+                  <div style={{ color: "var(--muted)", fontSize: 13 }}>{lesson.summary}</div>
+                </div>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <button onClick={() => setSelectedLesson(lesson)}>Open</button>
+                  <button onClick={() => onDownloadLesson(lesson)}>Download notes</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <aside style={{ width: 420 }}>
+          <div className="card">
+            <h4 style={{ marginTop: 0 }}>Lesson Player</h4>
+            {selectedLesson ? (
+              <div>
+                <video controls style={{ width: "100%", borderRadius: 8 }} src={selectedLesson.video} />
+                <div style={{ marginTop: 8 }}>
+                  <div style={{ fontWeight: 700 }}>{selectedLesson.title}</div>
+                  <div style={{ color: "var(--muted)", fontSize: 13 }}>{selectedLesson.summary}</div>
+                  <div style={{ marginTop: 8 }}>
+                    <button onClick={() => downloadTextFile(${selectedLesson.id}-notes.txt, `${selectedLesson.title}
+
+${selectedLesson.summary}`)}>Save notes</button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ color: "var(--muted)" }}>Select a lesson to begin. Videos are short and optimized for low-bandwidth.</div>
+            )}
+          </div>
+
+          <div className="card" style={{ marginTop: 12 }}>
+            <h5 style={{ margin: 0 }}>Micro-Quiz</h5>
+            <p style={{ color: "var(--muted)", marginTop: 8 }}>Short 3-question quizzes follow each lesson to reinforce learning.</p>
+          </div>
+        </aside>
+      </div>
+    </section>
+  );
+}
+
+// ----------------------------- Community -----------------------------
+function Community() {
+  // lightweight mock community UI — replace with real backend in production
+  const [posts, setPosts] = useState([
+    { id: 1, name: "Ramesh", msg: "Tried drip irrigation — water bill down 40%!" },
+    { id: 2, name: "Sita", msg: "Any tips for compost temperature?" }
+  ]);
+  const [text, setText] = useState("");
+
+  function addPost() {
+    if (!text.trim()) return;
+    setPosts(prev => [{ id: Date.now(), name: "You", msg: text.trim() }, ...prev]);
+    setText("");
+  }
+
+  return (
+    <section>
+      <h3>Community</h3>
+      <div className="card" style={{ marginTop: 8 }}>
+        <textarea aria-label="Write a post" rows={3} value={text} onChange={(e) => setText(e.target.value)} style={{ width: "100%" }} />
+        <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between" }}>
+          <small style={{ color: "var(--muted)" }}>Be respectful — community guidelines apply.</small>
+          <button onClick={addPost}>Post</button>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 12 }}>
+        {posts.map(p => (
+          <div key={p.id} className="card" style={{ marginBottom: 8 }}>
+            <div style={{ fontWeight: 700 }}>{p.name}</div>
+            <div style={{ color: "var(--muted)", marginTop: 6 }}>{p.msg}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// ----------------------------- Profile -----------------------------
+function Profile({ profile, setProfile }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(profile);
+
+  function save() {
+    setProfile(draft);
+    setEditing(false);
+    localStorage.setItem("fq_profile", JSON.stringify(draft));
+  }
+
+  useEffect(() => {
+    const p = localStorage.getItem("fq_profile");
+    if (p) setProfile(JSON.parse(p));
+  }, []);
+
+  return (
+    <section>
+      <h3>Profile</h3>
+      <div className="card" style={{ marginTop: 8 }}>
+        {editing ? (
+          <div>
+            <label>
+              Name<br />
+              <input value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} />
+            </label>
+            <br />
+            <label>
+              Farm type<br />
+              <select value={draft.farmType} onChange={e => setDraft({ ...draft, farmType: e.target.value })}>
+                <option>Smallholder</option>
+                <option>Commercial</option>
+                <option>Hobby</option>
+              </select>
+            </label>
+
+            <div style={{ marginTop: 8 }}>
+              <button onClick={save}>Save</button>
+              <button onClick={() => setEditing(false)} style={{ marginLeft: 8 }}>Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <div>
+            <div style={{ fontWeight: 700 }}>{profile.name}</div>
+            <div style={{ color: "var(--muted)", marginTop: 6 }}>{profile.farmType}</div>
+            <div style={{ marginTop: 8 }}>
+              <button onClick={() => setEditing(true)}>Edit Profile</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+// ----------------------------- Micro Quiz modal -----------------------------
+function MicroQuiz({ onClose }) {
+  const quiz = {
+    q: "Which practice helps conserve water in farming?",
+    choices: ["Flood irrigation", "Drip irrigation", "Overhead sprinklers", "No irrigation"],
+    answer: 1
+  };
+  const [selected, setSelected] = useState(null);
+  const [feedback, setFeedback] = useState(null);
+
+  function submit() {
+    if (selected === null) return setFeedback("Please select an option.");
+    if (selected === quiz.answer) setFeedback("Correct — drip irrigation delivers water to roots and reduces waste.");
+    else setFeedback("Not correct. Review the lesson for better understanding.");
+  }
+
+  return (
+    <div style={{ position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.4)" }}>
+      <div style={{ width: 680, maxWidth: "95%", background: "white", borderRadius: 10, padding: 20 }} role="dialog" aria-modal>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <strong>Micro Quiz</strong>
+          <button onClick={onClose} aria-label="Close quiz">✕</button>
+        </div>
+
+        <div style={{ marginTop: 12 }}>
+          <div style={{ fontWeight: 700 }}>{quiz.q}</div>
+          <div style={{ marginTop: 10 }}>
+            {quiz.choices.map((c, i) => (
+              <label key={i} style={{ display: "block", marginBottom: 8, cursor: "pointer" }}>
+                <input type="radio" name="q" checked={selected === i} onChange={() => setSelected(i)} /> {" "}{c}
+              </label>
+            ))}
+          </div>
+
+          <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+            <button onClick={submit} style={{ background: "var(--accent)", color: "white", padding: "8px 12px", borderRadius: 8 }}>Submit</button>
+            <button onClick={() => { setSelected(null); setFeedback(null); }}>Reset</button>
+          </div>
+
+          {feedback && <div style={{ marginTop: 10 }}>{feedback}</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ----------------------------- Footer -----------------------------
+function Footer() {
+  return (
+    <footer className="footer">
+      <div className="container" style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+        <div>
+          <div style={{ fontWeight: 700 }}>FarmQuest</div>
+          <div style={{ color: "#cbd5e1", fontSize: 13 }}>Sustainable farming learning — accessible to all.</div>
+        </div>
+
+        <div style={{ display: "flex", gap: 24 }}>
+          <div>
+            <div style={{ fontWeight: 700 }}>Resources</div>
+            <div style={{ color: "#cbd5e1", fontSize: 13 }}>How-to guides<br/>Video library</div>
+          </div>
+
+          <div>
+            <div style={{ fontWeight: 700 }}>Contact</div>
+            <div style={{ color: "#cbd5e1", fontSize: 13 }}>support@farmquest.org<br/>+91 90000 00000</div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ textAlign: "center", marginTop: 12, color: "#94a3b8", fontSize: 12 }}>© {new Date().getFullYear()} FarmQuest — All rights reserved</div>
+    </footer>
+  );
+}
