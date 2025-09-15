@@ -1,0 +1,8 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom styles for FarmQuest */
+body {
+  @apply bg-green-50 text-gray-900;
+}
